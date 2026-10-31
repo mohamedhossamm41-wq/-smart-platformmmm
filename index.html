@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سجل حضور وغياب مدرسة القصاصين الثانوية</title>
+    
+
+
+
+
+
+
+
+    <!-- مكتبات Firebase اللحظية -->
+   
+<!-- مكتبات Firebase الإصدار 8 المتوافق مع الكود اللحظي -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        body { font-family: Tahoma, sans-serif; background: #f4f4f9; margin: 0; padding: 15px; direction: rtl; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        h1, h3 { color: #1e293b; text-align: center; }
+        .nav { display: flex; justify-content: center; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
+        button { padding: 10px 18px; cursor: pointer; border: none; background: #2563eb; color: white; border-radius: 8px; font-weight: bold; font-size: 14px; }
+        button:hover { background: #1d4ed8; }
+        .archive-btn { background: #d97706; }
+        .warning-btn { background: #dc2626; }
+        .danger-btn { background: #b91c1c; }
+        .excel-btn { background: #15803d; }
+        .excel-btn:hover { background: #166534; }
+        .section { display: none; }
+        .section.active { display: block; }
+        .card { background: #fff; border: 1px solid #e2e8f0; padding: 12px 18px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .present { background: #16a34a; color: white; }
+        .absent { background: #dc2626; color: white; }
+        .unselected { background: #f1f5f9; color: #475569; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; }
+        th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: center; font-size: 14px; }
+        th { background: #0f172a; color: white; }
+        .back-btn { background: #64748b; margin-bottom: 15px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 15px; }
+        .grid-btn { padding: 22px; font-size: 16px; background: #2563eb; border-radius: 10px; text-align: center; color: white; cursor: pointer; font-weight: bold; }
+        .search-input { width: 100%; padding: 12px 15px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; box-sizing: border-box; }
+        .stats-box { background: #f8fafc; border: 2px dashed #cbd5e1; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none; }
+        .stats-grid { display: flex; justify-content: space-around; gap: 15px; text-align: center; }
+        .stat-item { background: white; padding: 10px 20px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); flex: 1; border-top: 4px solid #2563eb; }
+        .group-header { background: #e2e8f0; padding: 10px 15px; border-radius: 6px; margin-top: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        
+        @media print {
+            body * { visibility: hidden; }
+            #printableArea, #printableArea * { visibility: visible; }
+            #printableArea { position: absolute; left: 0; top: 0; width: 100%; }
+            .group-header button, .nav, .back-btn, input, .danger-btn, .excel-btn { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>سجل حضور وغياب مدرسة القصاصين الثانوية</h1>
+    <h3 style="font-size: 14px; color: #64748b; margin-bottom: 20px;">إشراف وتطوير المهندس: محمد حسام محمد</h3>
+
+    <div class="nav">
+        <button onclick="changeSection('gradesSec')">🏫 الأقسام الرئيسية</button>
+        <button class="warning-btn" onclick="changeSection('warningsMainSec')">🚨 تقارير الإنذارات والغياب</button>
+        <button class="archive-btn" onclick="changeSection('archiveSec')">📂 الأرشيف وإحصائيات الطلاب</button>
+    </div>
+
+    <!-- 1. الرئيسية -->
+    <div id="gradesSec" class="section active">
+        <h3>اختر الصف الدراسي:</h3>
+        <div class="grid">
+            <div class="grid-btn" onclick="openGrade('الصف الأول الثانوي')">الصف الأول الثانوي<br><span style="font-size: 12px; font-weight: normal;">(11 فصلاً دراسياً)</span></div>
+            <div class="grid-btn" style="background: #047857;" onclick="openGrade('الصف الثاني الثانوي')">الصف الثاني الثانوي (البكالوريا)<br><span style="font-size: 12px; font-weight: normal;">(11 فصلاً دراسياً)</span></div>
+        </div>
+    </div>
+
+    <!-- 2. الفصول -->
+    <div id="subSec" class="section">
+        <button class="back-btn" onclick="changeSection('gradesSec')">⬅ رجوع</button>
+        <h3 id="subTitle">اختر الفصل:</h3>
+        <div class="grid" id="subGrid"></div>
+    </div>
+
+    <!-- 3. قائمة الطلاب -->
+    <div id="studentsSec" class="section">
+        <button class="back-btn" onclick="changeSection('subSec')">⬅ رجوع</button>
+        <h3 id="studentsTitle">قائمة الطلاب:</h3>
+        <div id="studentsList"></div>
+        <button onclick="saveAttendance()" style="background: #16a34a; width: 100%; margin-top: 20px; padding: 14px; font-size: 16px;">💾 حفظ الاعتماد ومزامنة البيانات 📊</button>
+    </div>
+
+    <!-- 4. القائمة الرئيسية لاختيار صف الإنذارات -->
+    <div id="warningsMainSec" class="section">
+        <button class="back-btn" onclick="changeSection('gradesSec')">⬅ رجوع إلى الرئيسية</button>
+        <h3>🚨 تقارير الغياب والإنذارات الرسمية</h3>
+        <div class="grid">
+            <div class="grid-btn" onclick="openWarningsGrade('الصف الأول الثانوي')">إنذارات الصف الأول الثانوي</div>
+            <div class="grid-btn" style="background: #047857;" onclick="openWarningsGrade('الصف الثاني الثانوي')">إنذارات الصف الثاني الثانوي (البكالوريا)</div>
+        </div>
+    </div>
+
+    <!-- 5. أقسام أيام الغياب -->
+    <div id="warningsDaysSec" class="section">
+        <button class="back-btn" onclick="changeSection('warningsMainSec')">⬅ رجوع لاختيار الصف</button>
+        <h3 id="daysGradeTitle">🚨 اختر قسم أيام الغياب:</h3>
+        <div class="grid">
+            <div class="grid-btn" style="background: #ca8a04;" onclick="openWarningsTable(5)">غائب 5 أيام فأكثر (تنبيه أول)</div>
+            <div class="grid-btn" style="background: #c2410c;" onclick="openWarningsTable(10)">غائب 10 أيام فأكثر (إنذار أول)</div>
+            <div class="grid-btn" style="background: #b91c1c;" onclick="openWarningsTable(15)">غائب 15 يوماً فأكثر (إنذار ثانٍ)</div>
+            <div class="grid-btn" style="background: #7f1d1d;" onclick="openWarningsTable(20)">غائب 20 يوماً فأكثر (إنذار ثالث وفصل)</div>
+            <div class="grid-btn" style="background: #581c87;" onclick="openWarningsTable(25)">غائب 25 يوماً فأكثر (متابعة قانونية)</div>
+            <div class="grid-btn" style="background: #312e81;" onclick="openWarningsTable(30)">غائب 30 يوماً فأكثر (إجراء نهائي)</div>
+        </div>
+    </div>
+
+    <!-- 6. جدول عرض تفاصيل الغياب والخيارات -->
+    <div id="warningsTableSec" class="section">
+        <button class="back-btn" onclick="changeSection('warningsDaysSec')">⬅ رجوع للأقسام</button>
+        <h3 id="warningsTableTitle">🚨 تفاصيل الغياب</h3>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
+            <input type="text" id="warningSearchInput" class="search-input" style="margin-bottom:0; flex:1; min-width: 200px;" placeholder="🔍 ابحث عن اسم الطالب..." onkeyup="renderWarningsTable()">
+            <button class="excel-btn" style="background: #0d9488;" onclick="exportAllGroupsToExcel(this)">📑 تصدير لـ Excel (.xls)</button>
+            <button class="excel-btn" style="background: #2563eb;" onclick="printAllTables()">🖨️ طباعة التقرير / PDF</button>
+            <button class="danger-btn" onclick="clearWarningsData()">🗑️ مسح سجلات هذا القسم</button>
+        </div>
+
+        <h4 id="reportSubTitle" style="text-align: center; color: #334155; margin-bottom: 15px;"></h4>
+
+        <div id="printableArea">
+            <div id="warningsTablesContainer"></div>
+        </div>
+    </div>
+
+    <!-- 7. الأرشيف وإحصائيات البحث -->
+    <div id="archiveSec" class="section">
+        <button class="back-btn" onclick="changeSection('gradesSec')">⬅ رجوع</button>
+        <h3>📂 الأرشيف وإحصائيات الطلاب</h3>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="searchInput" class="search-input" style="margin-bottom:0; flex:1;" placeholder="🔍 ابحث عن اسم الطالب لمعرفة غيابه وحضوره..." onkeyup="searchArchive()">
+            <button class="danger-btn" onclick="clearArchiveData()">🗑️ مسح الأرشيف</button>
+        </div>
+        
+        <div id="studentStatsBox" class="stats-box">
+            <h4 id="statsStudentName" style="margin-top: 0; color: #1e293b; text-align: center;">إحصائيات الطالب:</h4>
+            <div class="stats-grid">
+                <div class="stat-item" style="border-top-color: #16a34a;">
+                    <span style="font-size: 13px; color: #64748b; display: block;">أيام الحضور</span>
+                    <b id="presentDaysCount" style="font-size: 20px; color: #16a34a;">0</b>
+                </div>
+                <div class="stat-item" style="border-top-color: #dc2626;">
+                    <span style="font-size: 13px; color: #64748b; display: block;">أيام الغياب</span>
+                    <b id="absentDaysCount" style="font-size: 20px; color: #dc2626;">0</b>
+                </div>
+                <div class="stat-item" style="border-top-color: #2563eb;">
+                    <span style="font-size: 13px; color: #64748b; display: block;">إجمالي السجلات</span>
+                    <b id="totalDaysCount" style="font-size: 20px; color: #2563eb;">0</b>
+                </div>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>التاريخ</th>
+                    <th>الصف</th>
+                    <th>الفصل</th>
+                    <th>اسم الطالب</th>
+                    <th>الحالة</th>
+                </tr>
+            </thead>
+            <tbody id="archiveBody">
+                <tr><td colspan="5">لا توجد سجلات محفوظة..</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+<script>
+   
+    try {
+        if (firebaseConfig.databaseURL !== "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com") {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            isFirebaseReady = true;
+        }
+    } catch (e) {
+        console.log("Firebase error:", e);
+    }
+
+    const classesFirst = [
+        "1 / 1", "1 / 2", "1 / 3", "1 / 4", "1 / 5", 
+        "1 / 6", "1 / 7", "1 / 8", "1 / 9", "1 / 10", "1 / 11"
+    ];
+    
+    const classesSecond = [
+        "2 / 1", "2 / 2", "2 / 3", "2 / 4", "2 / 5", 
+        "2 / 6", "2 / 7", "2 / 8", "2 / 9", "2 / 10", "2 / 11"
+    ];
+    
+      
+    const studentsData = {
+    "الصف الأول الثانوي": {
+        "1 / 1": [
+            {name: "ابراهيم السيد محمد منصور"},
+            {name: "ابراهيم تامر محمد ابراهيم"},
+            {name: "ابراهيم عبدالظاهر حسين حسن"},
+            {name: "سعيد عبدالظاهر حسين حسن"},
+            {name: "احمد اسماعيل توفيق محمد"},
+            {name: "احمد الخطيب محمد علوان"},
+            {name: "احمد امجد احمد محمد"},
+            {name: "احمد جمعه خميس خليل طايل"},
+            {name: "احمد حسن محمد محمد عبد السلام"},
+            {name: "احمد سامي احمد محمد عطية"},
+            {name: "احمد سعيد خليل احمد"},
+            {name: "احمد سليمان احمد سليمان"},
+            {name: "احمد سيد احمد حسن"},
+            {name: "احمد صلاح محمد عبدالسلام"},
+            {name: "محمد صلاح محمد عبدالسلام"},
+            {name: "احمد صلاح مصطفي محمد علي"},
+            {name: "احمد علي حسن علي"},
+            {name: "اروي محمد عبدالعظيم محمد"},
+            {name: "ازهار عفيفي سعيد داود"},
+            {name: "اسراء امين احمد محمد"},
+            {name: "اسراء صلاح ابراهيم عبدالجليل"},
+            {name: "اسراء محمد محمد عبدالله حجازي"},
+            {name: "اسماء ابو الخير علي مصطفي"},
+            {name: "اسماء حسن احمد ابراهيم"},
+            {name: "اسماء صلاح محمد عبدالجواد"},
+            {name: "اسماء علي منصور عبدالعظيم"},
+            {name: "اسماء محمد فاروق السيد"},
+            {name: "اسماء يوسف عبدالحق محمد جاد"},
+            {name: "اسيل هشام احمد اسماعيل ابوزيد"},
+            {name: "اسينات احمد سليم السيد"},
+            {name: "اسينات اشرف محمد عبدالسلام"},
+            {name: "اسينات السيد عبدالنبي اسماعيل"},
+            {name: "اسينات محمد منصور ابراهيم"},
+            {name: "الاء اسماعيل احمد عثمان"},
+            {name: "الاء بغدادي محمد منصور"},
+            {name: "الاء صلاح شحاته محمد"},
+            {name: "الاء عطية عوض محمد"},
+            {name: "الاء وليد عبدالعظيم محمد"},
+            {name: "الزهراء احمد محمد محمود"},
+            {name: "اماني باسم عبدالعظيم محمد"},
+            {name: "اميرة احمد حسن احمد"},
+            {name: "اميرة احمد محمد السيد"},
+            {name: "اتي كمال زغلول امين"},
+            {name: "ايات السيد السيد احمد"},
+            {name: "ايات سعد السيد ابراهيم"}
+        ],
+        "1 / 2": [
+            {name: "احمد عمرو سمير ابراهيم مسلم"},
+            {name: "احمد فتحي مصطفي محمد"},
+            {name: "احمد مجدي سالم احمد"},
+            {name: "احمد محسن منصور محمد داود"},
+            {name: "احمد محفوظ عويضة حسن"},
+            {name: "احمد محمد السيد سليمان"},
+            {name: "احمد محمد عبدالرازق عبدالرحيم"},
+            {name: "احمد محمد عبدالله صالح"},
+            {name: "احمد محمود غريب عبدالرحيم محمود"},
+            {name: "ادم محمد السيد عبدالعزيز"},
+            {name: "ادم محمود محمد محمود محمد"},
+            {name: "ادهم السيد احمد السيد"},
+            {name: "ادهم محمد عبد المنعم ابراهيم احمد"},
+            {name: "ادهم محمد عبدالحميد عبدالكريم"},
+            {name: "ادهم محمد عبدالقادر محمد ابراهيم"},
+            {name: "ايمان علي خلف علي سليمان"},
+            {name: "ايمان مصطفي حسين محمد"},
+            {name: "ايه عبدالمنعم السيد سليمان"},
+            {name: "ايه محمد اسماعيل رمضان"},
+            {name: "بتول جرجس نصيف مرقص"},
+            {name: "براء مالك محمد عبدالسلام"},
+            {name: "براءة ايهاب محمد علي"},
+            {name: "بسمة سند احمد عبدالحميد"},
+            {name: "بسمة علي حسن رزق"},
+            {name: "بسملة ابراهيم احمد محمد"},
+            {name: "بسملة ابراهيم عبدالسلام غانم"},
+            {name: "بسملة احمد عبدالرحمن محمد"},
+            {name: "بسمله احمد عامر سلامة"},
+            {name: "بسنت احمد ابراهيم احمد"},
+            {name: "بسنت احمد حسن حسن"},
+            {name: "بسنت حمادة محمد محمود"},
+            {name: "بسنت شادي الهادي محمود"},
+            {name: "بسنت محمد محسن ابراهيم"},
+            {name: "بسنت محمود محمد علي"},
+            {name: "بيسان عبدالسلام محمد محمد"},
+            {name: "تقي محمد السيد عمر"},
+            {name: "تقي محمد السيد محمود"},
+            {name: "تقي محمد السيد هلال"},
+            {name: "جنا احمد حسن ابراهيم محمد"},
+            {name: "جنا علي سعيد عباس"},
+            {name: "جنا محمد خليل احمد غنام"},
+            {name: "جنات عماد محمد داود"},
+            {name: "جنة احمد محمد عبده"},
+            {name: "جنة محمد احمد حسن"}
+        ],
+        "1 / 3": [
+            {name: "ادهم يونس محمد يونس"},
+            {name: "اسلام احمد ابراهيم محمد"},
+            {name: "اسلام بخيت محمد قاسم"},
+            {name: "اسلام رضا محمود ابراهيم"},
+            {name: "اسلام مراد عبدالعزيز حسن"},
+            {name: "اكرم محمد بسيوني محمد"},
+            {name: "امير طاهر عاطف عطية"},
+            {name: "انس علاء سامي مشرف"},
+            {name: "اياد هاني علي محمد وادي"},
+            {name: "اياد هيثم علي محمد"},
+            {name: "ايهم محمد قطب عبدالرحمن"},
+            {name: "بلال عبدالله عبدالخالق عبدالله"},
+            {name: "حمودة وائل حمودة محمد"},
+            {name: "خالد احمد عبدالله عبدالعزيز"},
+            {name: "خالد فايز ابراهيم ابو هاشم"},
+            {name: "جني احمد فتحي احمد"},
+            {name: "جني السيد صابر محمد"},
+            {name: "جني السيد عبدالحميد احمد"},
+            {name: "جني السيد محمد عطية"},
+            {name: "جني سامح حسن محمد"},
+            {name: "جني عبدالله فتحي محمد محمود"},
+            {name: "جني عزت جمال سليمان"},
+            {name: "جني علي محمد قطب"},
+            {name: "جني عمرو محمد صلاح"},
+            {name: "جني محسن ابراهيم محمد"},
+            {name: "جني محمد خليل عبدالله خليل"},
+            {name: "جني محمد رمضان محمد"},
+            {name: "جني محمد شوقي سعد"},
+            {name: "جني محمد عبدالحميد المعطي"},
+            {name: "جني محمد عبدالله ابراهيم"},
+            {name: "جني محمد مصطفي ابو اليزيد"},
+            {name: "جني هيثم سعيد عبدالحميد"},
+            {name: "جني وائل السعيد السيد"},
+            {name: "جومانة جرجس نبيل يوسف"},
+            {name: "جومانة شحاته فهيم مرقص"},
+            {name: "جومانه وائل جمال محمد خليل"},
+            {name: "جيهان طارق محمد الغريب مصيلحي"},
+            {name: "حبيبة ابراهيم محمد احمد"},
+            {name: "حبيبة حسن محمد عبدالعال"},
+            {name: "حبيبة سليمان عبدالحميد سليمان"},
+            {name: "حبيبة عنتر عبدالستار اسماعيل"},
+            {name: "حبيبة محمد السيد احمد"},
+            {name: "حبيبة محمود عبدالرحمن محمود"},
+            {name: "حبيبه احمد السيد حسن"}
+        ],
+        "1 / 4": [
+            {name: "خالد محمد السيد محمد محمد"},
+            {name: "زياد السيد محمد حمد"},
+            {name: "زياد محسن احمد محمد حسن"},
+            {name: "زياد محمد بركات السيد عبدالعزيز"},
+            {name: "زياد محمد شعبان السيد"},
+            {name: "سامي فتحي عبدالعريم محمد حسن"},
+            {name: "سيف عادل السيد محمد ابراهيم"},
+            {name: "عادل محمد ابراهيم علي محمد"},
+            {name: "عبدالرحمن احمد عويضة حسن"},
+            {name: "عبدالرحمن السيد حسن محمد محمد"},
+            {name: "عبدالرحمن تامر محمود احمد"},
+            {name: "عبدالرحمن عطية عبدالعظيم"},
+            {name: "عبدالرحمن ماهر محمد متولي"},
+            {name: "حبيبه السيد صلاح السيد"},
+            {name: "حبيبه حسن ابراهيم حسن"},
+            {name: "حبيبه سامح احمد حسين"},
+            {name: "حبيبه علاء سليمان محمد"},
+            {name: "حبيبه مصطفي محمد علي العزب"},
+            {name: "حبيبه يوسف ابراهيم منصور"},
+            {name: "حسناء ابراهيم احمد خليل"},
+            {name: "حنان محمد احمد احمد"},
+            {name: "حنين محمد موسي حماد محمد"},
+            {name: "حنين احمد اسماعيل عبدالرحمن"},
+            {name: "حنين اسلام محمد عوض الله"},
+            {name: "حنين اسماعيل محمد اسماعيل"},
+            {name: "حنين خالد سعيد خليل"},
+            {name: "حنين شريف السيد عبده"},
+            {name: "حنين محمد فوزي موسي"},
+            {name: "خلود خالد عبدالوهاب عبدالدايم"},
+            {name: "داليا خالد محمد محمد"},
+            {name: "داليا محمود زكي علي سعيد"},
+            {name: "دعاء احمد فتحي احمد"},
+            {name: "دعاء محمد سعيد محمد محمد"},
+            {name: "دنيا محمد عبدالحميد سليم"},
+            {name: "رحمة فؤاد شكري محمد"},
+            {name: "رحمه احمد محمد عبدالعظيم"},
+            {name: "رحمه سمير السعيد عيد خليل"},
+            {name: "رحمه صلاح فتحي محمد"},
+            {name: "رحمه عبدالمجيد سعيد عبدالجيد"},
+            {name: "رحمه فرج الله احمد السيد"},
+            {name: "رحمه محمد ابراهيم محمد"},
+            {name: "رحمه محمد حلمي محمد"},
+            {name: "رحمه مصطفي محمد يونس"}
+        ],
+        "1 / 5": [
+            {name: "عبدالرحمن هيثم عبدالله قطب"},
+            {name: "عبدالله عبده ابراهيم محمد"},
+            {name: "عبدالعظيم عبدالله عبدالكظيم عبدالسلام"},
+            {name: "عبدالفتاح محمد عبدالفتاح عبدالقصود"},
+            {name: "عبدالله شحاته عبدالله محمد"},
+            {name: "عبدالله محمد عبدالمنعم شافعي"},
+            {name: "عبدالله ياسر عبدالعال محمد"},
+            {name: "علي ابراهيم علي محمد"},
+            {name: "عبدالمجيد اسماعيل ابراهيم اسماعيل"},
+            {name: "عمار محمد جمال حجازي ابراهيم"},
+            {name: "عمر ابراهيم محمود السيد"},
+            {name: "عمر احمد حسن علي"},
+            {name: "عمر احمد محمد علي"},
+            {name: "عمر اسماعيل عبدالفتاح عبدالرحمن"},
+            {name: "ردينة وليد وجدان عبداللطيف"},
+            {name: "رضا احمد خالد احمد عبدالعزيز"},
+            {name: "رضا سرحان ابراهيم سيد احمد"},
+            {name: "رقية احمد علوان احمد"},
+            {name: "رقية احمد حسين انور"},
+            {name: "رقية السيد محمد احمد"},
+            {name: "رقية إبراهيم احمد محمد"},
+            {name: "رقية عماد عبدالرحيم محمد"},
+            {name: "رقية محمد السيد موسي"},
+            {name: "رتا حسن محمد عبدالرحمن خليل"},
+            {name: "رنا علاء محمود السيد"},
+            {name: "رنا عبد العزيز محمد"},
+            {name: "رنا محمد السيد احمد"},
+            {name: "رنا محمد محروس محمد"},
+            {name: "رنا محمد مصطفي احمد"},
+            {name: "روان سليمان السيد ابراهيم"},
+            {name: "رودينا احمد حسني جمعة"},
+            {name: "رودينا محمد علي عبدالحميد السيد"},
+            {name: "روضة محمد احمد محمد ابراهيم"},
+            {name: "روضه طارق عبدالمعطي"},
+            {name: "روفينا صبري صبري رزق"},
+            {name: "روقية علي محمد علي"},
+            {name: "رونا عوض ابراهيم سيد"},
+            {name: "رويدا احمد عطية عبدالجليل"},
+            {name: "رويدا رضا علي عليوة"},
+            {name: "ريتاج احمد عبدالله السيد"},
+            {name: "ريتاج رمضان جابر محمد"},
+            {name: "ريتاج صلاح ابراهيم حسن بقري"},
+            {name: "ريتاج محمود عبده عبدالعاطي"},
+            {name: "ريتاج هاني سيد محمود"}
+        ],
+        "1 / 6": [
+            {name: "عمر السيد محمد ذكي"},
+            {name: "عمر السيد محمد عبدالفتاح"},
+            {name: "عمر رضا محمد ابو صافي"},
+            {name: "عمرعبدالغني علي عبدالغني"},
+            {name: "عمر محمد رشاد المرسي"},
+            {name: "عمر محمد عبدالسلام محمود"},
+            {name: "عمر محمد عبدالفتاح خالد"},
+            {name: "عمر محمد محمد نصير"},
+            {name: "عمر محمد مصطفي احمد"},
+            {name: "علي السيد علي داود محمد"},
+            {name: "فارس محمد يسري فتحي"},
+            {name: "فيليوباتير مايكل رضا رياض"},
+            {name: "كمال الدين محمد كمال الدين محمد"},
+            {name: "كيرلس عاطف فايز رزق"},
+            {name: "ريم احمد محمد عبدالله حجازي"},
+            {name: "ريم زيدان عبدالعزيز زيدان"},
+            {name: "ريماس صلاح عبدالله القوي عمر"},
+            {name: "ريماس عادل عوض عوض"},
+            {name: "ريماس محمد شوقي عبدالحميد"},
+            {name: "ريماس كامل حسن احمد"},
+            {name: "ريماس محمد سيد عبدالمنعم"},
+            {name: "ريهاء محمد فتحي محمد محمد"},
+            {name: "زهراء محمد احمد السيد"},
+            {name: "زهراء ياسر محمد عبدالله"},
+            {name: "ساتدي سلامة احمد سلامة"},
+            {name: "سعاد احمد محمود ابراهيم"},
+            {name: "سلمي احمد حسن سليمان"},
+            {name: "سلمي احمد عبدالحميد حسانين"},
+            {name: "سلمي السيد سعيد داود"},
+            {name: "سلمي حسن احمد خليل"},
+            {name: "سلمي حسام عبدالجواد محمد"},
+            {name: "سلمي محمد صابر علي ثابت"},
+            {name: "سلمي محمد عبدالحميد احمد"},
+            {name: "سلوى اميرو احمد اسماعيل"},
+            {name: "سما احمد سعيد عبد الحق"},
+            {name: "سما السيد حسين مصطفي احمد"},
+            {name: "سما السيد محمد حسين"},
+            {name: "سما جمال محمد عبادي"},
+            {name: "سما صلاح عبدالله عبدالعزيز"},
+            {name: "سما طارق فتحي علي"},
+            {name: "سما فاروق جلال حسن"},
+            {name: "سما محمد احمد عبدالجليل"},
+            {name: "سما محمد عبدالله عبيد"},
+            {name: "سما محمد عبد العال السيد"},
+            {name: "سما محمد لطفي عبدالعال"}
+        ],
+        "1 / 7": [
+            {name: "مازن محمود محمد عيسي"},
+            {name: "مالك محمد سويلم محمد"},
+            {name: "محمد ابراهيم عبدالعظيم علي يوسف"},
+            {name: "محمد ابراهيم السيد موسي"},
+            {name: "محمد ابراهيم عبدالفتاح ابو عمره"},
+            {name: "محمد ابراهيم محمد محمد"},
+            {name: "محمد ابراهيم يونس ابراهيم"},
+            {name: "محمد احمد جمعه احمد"},
+            {name: "محمد احمد عبدالمنعم غانم"},
+            {name: "محمد احمد محمود السيد"},
+            {name: "محمد السيد محمود يوسف"},
+            {name: "محمد السيد سالم السيد"},
+            {name: "محمد السيد عبدالحميد عبدالقادر"},
+            {name: "محمد السيد عبدالعزيز محمد"},
+            {name: "محمد السيد محمد عبدالرحمن"},
+            {name: "محمد السيد محمد عبد العزيز ابراهيم"},
+            {name: "سما محمد محمود عبدالعاطي"},
+            {name: "سما علاء شافعي محمد محمد"},
+            {name: "شروق احمد عبدالرحمن محمد"},
+            {name: "شمس اسامة علي السيد"},
+            {name: "شهد جمال عبدالحميد سيد"},
+            {name: "شهد سامي عبدالعزيز سليمان"},
+            {name: "شهد علي رجب سالم"},
+            {name: "شهد محمود محمد مصطفي"},
+            {name: "شهدان هيثم محمد محمد"},
+            {name: "شيماء سمير يوسف حجازي"},
+            {name: "صوفيا غريب محمد علي"},
+            {name: "ضحي محسن عبدالعظيم محمد"},
+            {name: "عائشة يوسف احمد عبدالعزيز"},
+            {name: "عبير عبدالفتاح عبدالمنعم احمد"},
+            {name: "علياء ابراهيم سالم محمد"},
+            {name: "علياء ماهر محمد عبدالفتاح"},
+            {name: "علياء محمد عبدالحميد عبدالحميد"},
+            {name: "غاده عادل محمد محمد"},
+            {name: "فاطمة احمد سمير احمد علي"},
+            {name: "فاطمة ثروت محمد جودة"},
+            {name: "فاطمة سليمان موسي سلمان"},
+            {name: "فاطمة عبدلله احمد سليم"},
+            {name: "فاطمة عبد الجليل قاسم"},
+            {name: "فرح حسين السيد محمد"},
+            {name: "فرح اشرف احمد عودة"},
+            {name: "فرح عبدالفتاح السيد عبدالفتاح"},
+            {name: "فرح عصام السيد محمد"},
+            {name: "فرح محمد احمد امام"},
+            {name: "فرح محمد حسني احمد"},
+            {name: "فرح منصور مصطفي محمد"}
+        ],
+        "1 / 8": [
+            {name: "محمد السيد مصطفي محمد"},
+            {name: "محمد حاتم جلال اسماعيل سعيد"},
+            {name: "محمد حسن محمد شافعي"},
+            {name: "محمد حسين محمد السيد"},
+            {name: "محمد حسين محمد عبدالله"},
+            {name: "محمد دسوقي انور ابراهيم الدسوقي"},
+            {name: "محمد رضا محمد عبدالله"},
+            {name: "محمد رضا محمود احمدي"},
+            {name: "محمد سامح محمد عبدالرحمن"},
+            {name: "محمد سعد محمدين سعد راغب"},
+            {name: "محمد سمير محمد صلاح"},
+            {name: "محمد سمير محمد يوسف"},
+            {name: "محمد شريف صلاح صلاح"},
+            {name: "محمد شلبي محمد شلبي"},
+            {name: "محمد صابر السيد سليمان حسن"},
+            {name: "فرحة رضا الشحات عبدالجليل"},
+            {name: "فرحة رضا احمد محمد"},
+            {name: "فيروز مهاب احمد عبدالمقصود"},
+            {name: "كارين نيروز جرجس ميخائيل"},
+            {name: "كيرمينا وحيد الزبير سالم جرجس"},
+            {name: "لماس حسن فريد حسن"},
+            {name: "لميس طه محمد سليمان"},
+            {name: "ليالي مصطفي محمد احمد"},
+            {name: "مارينا جرجس نصر موسي"},
+            {name: "مريم اشرف ابوزيد علي حمد"},
+            {name: "مريم السيد عبدالله عبدالمجيد"},
+            {name: "مريم ايمن محمد حسن علي"},
+            {name: "مريم ايهاب سمير صبحي"},
+            {name: "مريم حسام عبدالجليل عبدالحليم"},
+            {name: "مريم خالد سيد محمد"},
+            {name: "مريم زكريا عطية يوسف"},
+            {name: "مريم سامي علي سويلم"},
+            {name: "مريم سعيد فاضل ابراهيم"},
+            {name: "مريم سعيد محمد سعيد"},
+            {name: "مريم عبدالحميد ياسين عبدالحميد"},
+            {name: "مريم محمد فوزي احمد"},
+            {name: "مريم محمد محي الدين"},
+            {name: "مريم محمد محمد عيدربه"},
+            {name: "مريم محمد مصطفي عبدالحليم"},
+            {name: "مريم محمد منصور محمد"},
+            {name: "مريم ممدوح ابراهيم منصور"},
+            {name: "ملك ابراهيم محمود محمد"}
+        ],
+        "1 / 9": [
+            {name: "محمد عادل صالح عبدال العال"},
+            {name: "محمد علاء السيد العربي حنفي"},
+            {name: "محمد علاء السيد علي"},
+            {name: "محمد عبد ابراهيم جابر الليثي"},
+            {name: "محمد فتحي شافعي محمد"},
+            {name: "محمد عيد ابراهيم جابر الليثي"},
+            {name: "محمد عبدالحميد محمود"},
+            {name: "محمد محمود عبدالعظيم عبدالعزيز"},
+            {name: "محمد مصطفي السيد سليم"},
+            {name: "محمد ياسر علي ابراهيم"},
+            {name: "محمد هاني احمد عبدالقوي"},
+            {name: "محمود احمد محمود حسن"},
+            {name: "محمود حسام عبدالله قطب"},
+            {name: "ملك احمد عيد محمود"},
+            {name: "ملك تامر فرج السيد"},
+            {name: "ملك مصطفي محمد محمد"},
+            {name: "ملك موسي عبدالعزيز غانم"},
+            {name: "ملك السيد ابراهيم السيد"},
+            {name: "ملك جابر محمد ابوباسطي"},
+            {name: "ملك السيد الشحات ابراهيم"},
+            {name: "ملك حسن محمد سباعي"},
+            {name: "ملك رجب احمد رمضان"},
+            {name: "ملك شعبان عبدالفتاح عبدالجواد"},
+            {name: "ملك صلاح محمد محمد"},
+            {name: "ملك عبدالحميد احمد عبدالحميد"},
+            {name: "ملك عصام محمد عبدالقادر"},
+            {name: "ملك عصام السيد عبدالجواد"},
+            {name: "ملك علي جلال علي"},
+            {name: "ملك قدري نبيل حجازي عبد العال"},
+            {name: "ملك محمد احمد حسن"},
+            {name: "ملك محمد احمد سليم"},
+            {name: "ملك محمد السيد مصطفي صالح"},
+            {name: "ملك محمد علي احمد منصور"},
+            {name: "ملك محمد معاون ابراهيم"},
+            {name: "ملك محمود عبدالله مطاوع"},
+            {name: "ملك هيثم عبدالحميد لطفي"},
+            {name: "منة احمد محمد مبارك"},
+            {name: "منة الله ممدوح حسن محمد"},
+            {name: "منة الله السيد حمدي"},
+            {name: "منة الله السيد ابراهيم"},
+            {name: "منة الله احمد عبدالعظيم علوان"},
+            {name: "منه احمد عبده احمد حسن"}
+        ],
+        "1 / 10": [
+            {name: "محمود سمير محمد صبري"},
+            {name: "محمود محمد صبري"},
+            {name: "محمود محمد احمد احمدي"},
+            {name: "محمود محمد محمود حسن"},
+            {name: "مرون عبد النبي عزپ محمد"},
+            {name: "مصطفي حسني السيد محمد"},
+            {name: "معتصم احمد محمد السيد"},
+            {name: "منير احمد منير كامل"},
+            {name: "مومن عبد العظيم محمود عبد العظيم"},
+            {name: "هشام ابو جريشة عوض عبد السلام"},
+            {name: "ياسين السيد عواد درويش"},
+            {name: "ياسين عبد الرحمن محمود محمد"},
+            {name: "يوسف احمد السيد محمد"},
+            {name: "يوسف احمد محمد علي"},
+            {name: "منه الله اسامة السيد سالم"},
+            {name: "منه رضا محمد محمد"},
+            {name: "منه علي محمد حسن"},
+            {name: "منه محمود محمد عطايا"},
+            {name: "مي حسن ابو المجد احمد"},
+            {name: "مي مصطفي محمد محمد"},
+            {name: "مي يحي علي عبد الحميد"},
+            {name: "ميار السيد حسن عبدالله السيد"},
+            {name: "ميار حسن عبد الرحمن حسن"},
+            {name: "ميار عماد وليد صليب يوسف"},
+            {name: "ميرنا تامر ابراهيم الدسوقي"},
+            {name: "ميسون اشرف سعد سليمان"},
+      ],
+    },
+        "الصف الثاني الثانوي": {
+            "2 / 1": [],
+            "2 / 2": [],
+            "2 / 3": [],
+            "2 / 4": [],
+            "2 / 5": [],
+            "2 / 6": [],
+            "2 / 7": [],
+            "2 / 8": [],
+            "2 / 9": [],
+            "2 / 10": [],
+            "2 / 11": []
+        }
+    };
+
+  let selectedGrade = "";
+    let selectedSub = "";
+    let currentWarningGrade = "";
+    let currentWarningDays = 5;
+    let attendanceMap = {};
+    let archive = [];
+    let currentFilteredWarnings = [];
+
+    // 1. تحميل ومزامنة الأرشيف بكفاءة عالية وبدون تهنيج
+    function loadArchiveData() {
+        if (isFirebaseReady && db) {
+            db.ref('attendance_archive').on('value', (snapshot) => {
+                const data = snapshot.val();
+                archive = data ? Object.values(data) : [];
+                try {
+                    localStorage.setItem("archive", JSON.stringify(archive));
+                } catch(e) {}
+                
+                renderArchiveTable(archive);
+                
+                if (document.getElementById('warningsTableSec') && document.getElementById('warningsTableSec').classList.contains('active')) {
+                    renderWarningsTable();
+                }
+            });
+        } else {
+            try {
+                archive = JSON.parse(localStorage.getItem("archive")) || [];
+            } catch(e) { archive = []; }
+            renderArchiveTable(archive);
+        }
+    }
+
+    function changeSection(secId) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        const target = document.getElementById(secId);
+        if (target) target.classList.add('active');
+    }
+
+    // --- [تم ضبط دالة فتح الصف واختيار الفصول بدقة] ---
+    function openGrade(grade) {
+        selectedGrade = grade;
+        const subGrid = document.getElementById('subGrid');
+        if (!subGrid) return;
+        subGrid.innerHTML = "";
+        
+        const subTitle = document.getElementById('subTitle');
+        if (subTitle) subTitle.innerText = `${grade} - اختر الفصل:`;
+        
+        const list = (grade === "الصف الأول الثانوي") ? classesFirst : classesSecond;
+        
+        list.forEach(cls => {
+            const btn = document.createElement('div');
+            btn.className = 'grid-btn';
+            btn.innerText = `فصل ${cls}`;
+            btn.onclick = () => openStudents(cls);
+            subGrid.appendChild(btn);
+        });
+        changeSection('subSec');
+    }
+
+    // --- [تم ضبط دالة عرض الطلاب وسحب الأسماء الصحيحة بكفاءة عالية بدون تهنيج] ---
+    function openStudents(cls) {
+        selectedSub = cls;
+        const studentsTitle = document.getElementById('studentsTitle');
+        if (studentsTitle) studentsTitle.innerText = `${selectedGrade} - فصل: ${cls}`;
+        
+        const listDiv = document.getElementById('studentsList');
+        if (!listDiv) return;
+        attendanceMap = {};
+
+        // جلب الطلاب الخاصين بالصف والفصل المحدد بدقة
+        const gradeObj = studentsData[selectedGrade] || {};
+        const students = gradeObj[cls] || [];
+
+        // إذا كان الفصل فارغاً ولم تقم بإضافة أسماء له بعد
+        if (students.length === 0) {
+            listDiv.innerHTML = `<div style="padding:20px; text-align:center; color:#64748b; font-weight:bold;">⚠️ تنبيه: لا توجد أسماء مسجلة في فصل (${cls}) حالياً. يرجى إضافتها في كائن studentsData!</div>`;
+            return;
+        }
+
+        // استخدام DocumentFragment لسرعة رسم الكاردات ومنع تهنيج الصفحة
+        const fragment = document.createDocumentFragment();
+
+        students.forEach((st, idx) => {
+            attendanceMap[st.name] = "غائب"; // الافتراضي غائب لكل طالب
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <span><b>${idx + 1}.</b> - <b>${st.name}</b></span>
+                <div>
+                    <button class="unselected" id="p-${idx}" onclick="setSt('${st.name.replace(/'/g, "\\'")}', 'حاضر', ${idx})">حاضر</button>
+                    <button class="absent" id="a-${idx}" onclick="setSt('${st.name.replace(/'/g, "\\'")}', 'غائب', ${idx})">غائب</button>
+                </div>
+            `;
+            fragment.appendChild(card);
+        });
+
+        listDiv.innerHTML = "";
+        listDiv.appendChild(fragment);
+        changeSection('studentsSec');
+    }
+
+    function setSt(st, status, idx) {
+        attendanceMap[st] = status;
+        const pBtn = document.getElementById(`p-${idx}`);
+        const aBtn = document.getElementById(`a-${idx}`);
+        if (pBtn) pBtn.className = status === 'حاضر' ? 'present' : 'unselected';
+        if (aBtn) aBtn.className = status === 'غائب' ? 'absent' : 'unselected';
+    }
+
+    // 2. الحفظ السريع والمنظم (تم تحسينه لمنع التهنيج تماماً أثناء الحفظ)
+    function saveAttendance() {
+        const today = new Date().toLocaleDateString('ar-EG');
+
+        if (!isFirebaseReady || !db) {
+            alert("⚠️ تنبيه: قاعدة البيانات غير متصلة حالياً، يتم الحفظ محلياً فقط!");
+        }
+
+        for (let st in attendanceMap) {
+            let entry = { 
+                date: today, 
+                grade: selectedGrade, 
+                sub: selectedSub, 
+                student: st, 
+                status: attendanceMap[st] 
+            };
+            
+            if (isFirebaseReady && db) {
+                db.ref('attendance_archive').push(entry);
+            } else {
+                archive.push(entry);
+                localStorage.setItem("archive", JSON.stringify(archive));
+            }
+        }
+
+        alert("تم حفظ واعتماد غياب الفصل بنجاح ومزامنته مع الجميع! 💾");
+        changeSection('gradesSec');
+    }
+
+    function renderArchiveTable(data) {
+        const tbody = document.getElementById('archiveBody');
+        if (!tbody) return;
+        if (!data || data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5">لا توجد سجلات محفوظة..</td></tr>`;
+            return;
+        }
+        
+        let html = "";
+        data.slice().reverse().slice(0, 150).forEach(item => {
+            html += `<tr><td>${item.date}</td><td>${item.grade}</td><td>${item.sub}</td><td><b>${item.student}</b></td><td style="color:${item.status==='حاضر'?'green':'red'}; font-weight:bold;">${item.status}</td></tr>`;
+        });
+        tbody.innerHTML = html;
+    }
+
+    function searchArchive() {
+        const searchInput = document.getElementById('searchInput');
+        if (!searchInput) return;
+        const query = searchInput.value.trim().toLowerCase();
+        const tbody = document.getElementById('archiveBody');
+        if (!tbody) return;
+
+        const statsBox = document.getElementById('studentStatsBox');
+
+        if(!query) {
+            if (statsBox) statsBox.style.display = 'none';
+            renderArchiveTable(archive);
+            return;
+        }
+
+        let present = 0, absent = 0, total = 0;
+        let filtered = [];
+
+        archive.forEach(item => {
+            if(item.student && item.student.toLowerCase().includes(query)) {
+                total++;
+                if(item.status === 'حاضر') present++;
+                if(item.status === 'غائب') absent++;
+                filtered.push(item);
+            }
+        });
+
+        if(filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5">لا توجد نتائج مطابقة..</td></tr>`;
+            if (statsBox) statsBox.style.display = 'none';
+            return;
+        }
+
+        if (document.getElementById('statsStudentName')) document.getElementById('statsStudentName').innerText = `إحصائيات الطالب: ${query}`;
+        if (document.getElementById('presentDaysCount')) document.getElementById('presentDaysCount').innerText = present;
+        if (document.getElementById('absentDaysCount')) document.getElementById('absentDaysCount').innerText = absent;
+        if (document.getElementById('totalDaysCount')) document.getElementById('totalDaysCount').innerText = total;
+        if (statsBox) statsBox.style.display = 'block';
+
+        renderArchiveTable(filtered);
+    }
+
+    function openWarningsGrade(grade) {
+        currentWarningGrade = grade;
+        const daysGradeTitle = document.getElementById('daysGradeTitle');
+        if (daysGradeTitle) daysGradeTitle.innerText = `🚨 ${grade} - اختر قسم أيام الغياب:`;
+        changeSection('warningsDaysSec');
+    }
+
+    function openWarningsTable(days) {
+        currentWarningDays = days;
+        const warningsTableTitle = document.getElementById('warningsTableTitle');
+        if (warningsTableTitle) warningsTableTitle.innerText = `🚨 تقارير الغياب (${days} أيام فأكثر) - ${currentWarningGrade}`;
+        changeSection('warningsTableSec');
+        renderWarningsTable();
+    }
+
+    function getWarningStatusText(count) {
+        if(count >= 30) return "⛔ إجراء نهائي (30 يوم فأكثر)";
+        if(count >= 25) return "⚠️ متابعة قانونية (25 يوم فأكثر)";
+        if(count >= 20) return "🚨 إنذار ثالث وفصل (20 يوم فأكثر)";
+        if(count >= 15) return "🔴 إنذار ثانٍ (15 يوم فأكثر)";
+        if(count >= 10) return "🟠 إنذار أول (10 أيام فأكثر)";
+        if(count >= 5)  return "🟡 تنبيه أول (5 أيام فأكثر)";
+        return "متابعة عادية";
+    }
+
+    // دالة الإنذارات المضبوطة بدقة وبدون أي نقص (باستخدام trim لتجنب مشاكل المسافات)
+    function renderWarningsTable() {
+        const warningSearchInput = document.getElementById('warningSearchInput');
+        const searchQuery = warningSearchInput ? warningSearchInput.value.trim().toLowerCase() : "";
+        let map = {};
+        
+        archive.forEach(i => {
+            if (i.status === 'غائب' && i.grade === currentWarningGrade) {
+                let studentName = i.student ? i.student.trim() : "طالب بدون اسم";
+                let subName = i.sub ? i.sub.toString().trim() : "";
+                
+                let key = `${studentName}_${i.grade}_${subName}`;
+                
+                if (!map[key]) {
+                    map[key] = { 
+                        student: studentName, 
+                        grade: i.grade, 
+                        sub: subName, 
+                        count: 0 
+                    };
+                }
+                map[key].count++;
+            }
+        });
+
+        let list = Object.values(map).filter(x => x.count >= currentWarningDays);
+
+        if (searchQuery) {
+            list = list.filter(x => x.student.toLowerCase().includes(searchQuery));
+        }
+
+        currentFilteredWarnings = list;
+
+        const container = document.getElementById('warningsTablesContainer');
+        if (!container) return;
+
+        const reportSubTitle = document.getElementById('reportSubTitle');
+        if (reportSubTitle) reportSubTitle.innerText = `إجمالي المستحقين للإنذار: (${list.length} طالب) في ${currentWarningGrade}`;
+
+        if (list.length === 0) {
+            container.innerHTML = `<table style="width:100%"><thead><tr><th>م</th><th>اسم الطالب</th><th>الصف / الفصل</th><th>أيام الغياب</th><th>الإجراء / الحالة</th></tr></thead><tbody><tr><td colspan="5">لا توجد حالات غياب مطابقة لهذا القسم حالياً..</td></tr></tbody></table>`;
+            return;
+        }
+
+        const chunkSize = 10;
+        let allHtml = "";
+
+        for (let i = 0; i < list.length; i += chunkSize) {
+            const chunk = list.slice(i, i + chunkSize);
+            const groupNum = Math.floor(i / chunkSize) + 1;
+
+            let groupHTML = `
+                <div class="group-header">
+                    <b>📋 مجموعة رقم (${groupNum}) - عدد الطلاب في الجدول: (${chunk.length})</b>
+                    <button class="excel-btn" style="padding: 6px 14px; font-size: 13px;" onclick="exportSingleGroupToExcel(${groupNum - 1}, this)">📥 تصدير الجدول لـ Excel (.xls)</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>م</th>
+                            <th>اسم الطالب</th>
+                            <th>الصف / الفصل</th>
+                            <th>أيام الغياب</th>
+                            <th>الإجراء / الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            chunk.forEach((item, idx) => {
+                let statusText = getWarningStatusText(item.count);
+                let gradeAndSub = `${item.grade} - ${item.sub}`;
+
+                groupHTML += `
+                    <tr>
+                        <td>${i + idx + 1}</td>
+                        <td><b>${item.student}</b></td>
+                        <td style="white-space: nowrap;">${gradeAndSub}</td>
+                        <td style="color:red; font-weight:bold;">${item.count} أيام</td>
+                        <td><b>${statusText}</b></td>
+                    </tr>`;
+            });
+
+            groupHTML += `</tbody></table>`;
+            allHtml += groupHTML;
+        }
+        container.innerHTML = allHtml;
+    }
+
+    function downloadExcelHtml(dataArray, filename, btnElement) {
+        if (!dataArray || dataArray.length === 0) {
+            alert("⚠️ لا توجد بيانات في هذا الجدول لتصديرها!");
+            return;
+        }
+
+        let originalText = "";
+        if (btnElement) {
+            originalText = btnElement.innerText;
+            btnElement.innerText = "⏳ جاري التحميل...";
+            btnElement.style.background = "#d97706";
+            btnElement.disabled = true;
+        }
+
+        let htmlContent = `
+            <html lang="ar" dir="rtl">
+            <head><meta charset="UTF-8"><title>${filename}</title></head>
+            <body>
+                <table border="1">
+                    <tr><th colspan="5" style="background:#0f172a; color:#fff; font-size:16px; padding:10px;">مدرسة القصاصين الثانوية المشتركة - تقرير الإنذارات</th></tr>
+                    <tr><th colspan="5" style="padding:8px;">الصف: ${currentWarningGrade} | عدد الأيام: ${currentWarningDays} أيام فأكثر</th></tr>
+                    <tr style="background:#f1f5f9;">
+                        <th>م</th>
+                        <th>اسم الطالب</th>
+                        <th>الصف / الفصل</th>
+                        <th>عدد أيام الغياب</th>
+                        <th>الحالة والإجراء</th>
+                    </tr>`;
+
+        dataArray.forEach((item, idx) => {
+            let statusText = getWarningStatusText(item.count);
+            htmlContent += `
+                <tr>
+                    <td style="text-align:center;">${idx + 1}</td>
+                    <td>${item.student}</td>
+                    <td style="text-align:center;">${item.grade} - ${item.sub}</td>
+                    <td style="text-align:center; color:red; font-weight:bold;">${item.count}</td>
+                    <td><b>${statusText}</b></td>
+                </tr>`;
+        });
+
+        htmlContent += `</table></body></html>`;
+
+        const blob = new Blob(['\ufeff' + htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            if (btnElement) {
+                btnElement.innerText = originalText;
+                btnElement.style.background = "#0d9488";
+                btnElement.disabled = false;
+            }
+        }, 800);
+    }
+
+    function exportSingleGroupToExcel(groupIndex, btn) {
+        const chunkSize = 10;
+        const chunk = currentFilteredWarnings.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
+        downloadExcelHtml(chunk, `انذارات_${currentWarningGrade}_${currentWarningDays}_ايام_مجموعة_${groupIndex + 1}.xls`, btn);
+    }
+
+    function printAllTables() {
+        if (!currentFilteredWarnings || currentFilteredWarnings.length === 0) {
+            alert("⚠️ لا توجد بيانات مطابقة في هذا القسم لطباعتها!");
+            return;
+        }
+        window.print();
+    }
+
+    // 3. مسح الأرشيف متصل بالسيرفر ليحذف عند الكل
+    function clearArchiveData() {
+        if(confirm("هل أنت متأكد من مسح جميع بيانات الأرشيف نهائياً من قاعدة البيانات للجميع؟")) {
+            if (isFirebaseReady && db) {
+                db.ref('attendance_archive').remove().then(() => {
+                    alert("تم مسح الأرشيف من قاعدة البيانات بنجاح.");
+                });
+            } else {
+                archive = [];
+                localStorage.removeItem("archive");
+                renderArchiveTable(archive);
+                if (document.getElementById('studentStatsBox')) document.getElementById('studentStatsBox').style.display = 'none';
+                alert("تم مسح الأرشيف محلياً بنجاح.");
+            }
+        }
+    }
+
+    // 4. مسح سجلات الإنذارات متصل بالسيرفر ليحدث عند الكل
+    function clearWarningsData() {
+        if(confirm(`هل أنت متأكد من مسح سجلات هذا القسم؟`)) {
+            if (isFirebaseReady && db) {
+                let updatedArchive = archive.filter(i => !(i.grade === currentWarningGrade && i.status === 'غائب'));
+                db.ref('attendance_archive').set(updatedArchive);
+            } else {
+                archive = archive.filter(i => !(i.grade === currentWarningGrade && i.status === 'غائب'));
+                localStorage.setItem("archive", JSON.stringify(archive));
+                renderWarningsTable();
+            }
+            alert("تم المسح بنجاح.");
+        }
+    }
+
+    window.onload = loadArchiveData;
+</script>
+
+<!-- تم ضبط الإعدادات هنا لتعمل بتوافق تام مع الدوال وسكربت الإصدار 8 -->
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBvhG5Gmflhy0ZGn5TylayXQSKmVba3tbo",
+    authDomain: "school-attendance-a2bc6.firebaseapp.com",
+    databaseURL: "https://school-attendance-a2bc6-default-rtdb.firebaseio.com",
+    projectId: "school-attendance-a2bc6",
+    storageBucket: "school-attendance-a2bc6.firebasestorage.app",
+    messagingSenderId: "1061204537458",
+    appId: "1:1061204537458:web:fa4d88033bb5d13422d2eb",
+    measurementId: "G-ED0Y4MKCQW"
+  };
+
+  let db = null;
+  let isFirebaseReady = false;
+
+  try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+      isFirebaseReady = true;
+  } catch (e) {
+      console.log("Firebase error:", e);
+  }
+</script>
+
+</body>
+</html>
